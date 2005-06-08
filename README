@@ -1,0 +1,31 @@
+HTTP over UDP driver for NaviServer 4.x
+Release 1.0
+vlad@crystalballinc.com
+
+This is NaviServer module that implements HTTP over UDP support and
+adds new ns_udp command for sending UDP packets.
+
+/*--------------------------------------------------------------------*/
+
+
+ Configuration
+ 
+   nsd.tcl
+ 
+   ns_section    ns/servers/server/modules
+   ns_param      nsudp        nsudp.so
+ 
+   ns_section    ns/servers/server/module/nsudp
+   ns_param      address    0.0.0.0
+   ns_param      port       80
+ 
+ Usage
+ 
+   ns_udp ?-timeout N? ?-noreply? ipaddr port data
+ 
+      ns_udp 127.0.0.1 80 "GET / HTTP/1.0\n\n"
+ 
+ Authors
+ 
+     Vlad Seryakov vlad@crystalballinc.com
+
