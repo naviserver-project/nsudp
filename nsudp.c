@@ -168,11 +168,12 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     struct sockaddr_in sa;
     int salen = sizeof(sa);
     char *address = 0, *data = 0;
-    int sock, len, port, timeout = 5, noreply = 0;
+    int sock, len, port, timeout = 5, retries = 1, noreply = 0;
         
     Ns_ObjvSpec opts[] = {
         {"-timeout", Ns_ObjvInt,   &timeout, NULL},
         {"-noreply", Ns_ObjvInt,   &noreply, NULL},
+        {"-retries", Ns_ObjvInt,   &retries, NULL},
         {"--",      Ns_ObjvBreak,  NULL,    NULL},
         {NULL, NULL, NULL, NULL}
     };
@@ -196,6 +197,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
         Tcl_AppendResult(interp, "socket error ", strerror(errno), 0);
         return TCL_ERROR;
     }
+resend:
     if (sendto(sock, data, len, 0,(struct sockaddr*)&sa,sizeof(sa)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
         return TCL_ERROR;
@@ -206,7 +208,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     }
     memset(buf,0,sizeof(buf));
     Ns_SockSetNonBlocking(sock);
-again:
+wait:
     FD_ZERO(&fds);
     FD_SET(sock,&fds);
     tv.tv_sec = timeout;
@@ -215,13 +217,16 @@ again:
     switch (len) {
      case -1:
          if (errno == EINTR || errno == EINPROGRESS || errno == EAGAIN) {
-             goto again;
+             goto wait;
          }
          Tcl_AppendResult(interp, "select error ", strerror(errno), 0);
          close(sock);
          return TCL_ERROR;
 
      case 0:
+         if(--retries < 0) {
+            goto resend;
+         }
          Tcl_AppendResult(interp, "timeout", 0);
          close(sock);
          return TCL_ERROR;
