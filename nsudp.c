@@ -86,7 +86,8 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
         Ns_Log(Error, "nsudp: driver init failed.");
         return NS_ERROR;
     }
-    return Ns_TclInitInterps(server, UdpInterpInit, 0);
+    Ns_TclRegisterTrace(server, UdpInterpInit, 0, NS_TCL_TRACE_CREATE);
+    return NS_OK;
 }
 
 static int
