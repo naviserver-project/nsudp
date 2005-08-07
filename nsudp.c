@@ -169,7 +169,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     struct sockaddr_in sa;
     int salen = sizeof(sa);
     char *address = 0, *data = 0;
-    int sock, len, port, timeout = 5, retries = 1, noreply = 0;
+    int i, sock, len, port, timeout = 5, retries = 1, noreply = 0;
         
     Ns_ObjvSpec opts[] = {
         {"-timeout", Ns_ObjvInt,   &timeout, NULL},
@@ -198,6 +198,10 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
         Tcl_AppendResult(interp, "socket error ", strerror(errno), 0);
         return TCL_ERROR;
     }
+    /* To support brodcasting addresses */
+    i = 1;                                                                                                      
+    setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int));
+
 resend:
     if (sendto(sock, data, len, 0,(struct sockaddr*)&sa,sizeof(sa)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
