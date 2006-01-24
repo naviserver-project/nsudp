@@ -63,7 +63,7 @@
 #include <sys/socket.h>
 #include <string.h>
 
-#define VERSION  "0.1"
+#define UDP_VERSION  "0.1"
 
 static Ns_DriverProc udpProc;
 static int UdpInterpInit(Tcl_Interp *interp, void *arg);
