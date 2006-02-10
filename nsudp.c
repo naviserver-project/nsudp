@@ -50,7 +50,7 @@
 
 #define BUFFER_LEN 1024
 
-#include "nsd.h"
+#include "ns.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -118,12 +118,15 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
 {
     int len;
     Tcl_DString *ds;
-    Sock *sockPtr = (Sock*)sock;
-    int slen = sizeof(struct sockaddr_in);
+    struct sockaddr_in saddr;
+    socklen_t slen = sizeof(struct sockaddr_in);
 
     switch(cmd) {
      case DriverRecv:
-         len = recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&sockPtr->sa, &slen);
+         if (getsockname(sock->sock, (struct sockaddr *)&saddr, &slen)) {
+             return NS_ERROR;
+         }
+         len = recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&saddr, &slen);
          return len;
 
      case DriverSend:
@@ -142,7 +145,10 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
      case DriverClose:
          ds = sock->arg;
          if (ds != NULL) {
-             slen = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sockPtr->sa, slen);
+             if (getsockname(sock->sock, (struct sockaddr *)&saddr, &slen)) {
+                 return NS_ERROR;
+             }
+             slen = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&saddr, slen);
              // Report about failed replies
              if (slen == -1) {
                  Ns_Log(Error,"DriverClose: %s: socket error: %s",sock->driver->name,strerror(errno));
@@ -155,6 +161,7 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
          return NS_OK;
 
      case DriverKeep:
+     case DriverAccept:
          break;
     }
     return NS_ERROR;
@@ -167,7 +174,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     char buf[16384];
     struct timeval tv;
     struct sockaddr_in sa;
-    int salen = sizeof(sa);
+    socklen_t salen = sizeof(sa);
     char *address = 0, *data = 0;
     int i, sock, len, port, timeout = 5, retries = 1, noreply = 0;
         
