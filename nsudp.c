@@ -118,15 +118,11 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
 {
     int len;
     Tcl_DString *ds;
-    struct sockaddr_in saddr;
     socklen_t slen = sizeof(struct sockaddr_in);
 
     switch(cmd) {
      case DriverRecv:
-         if (getsockname(sock->sock, (struct sockaddr *)&saddr, &slen)) {
-             return NS_ERROR;
-         }
-         len = recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&saddr, &slen);
+         len = recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&sock->sa, &slen);
          return len;
 
      case DriverSend:
@@ -145,10 +141,7 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
      case DriverClose:
          ds = sock->arg;
          if (ds != NULL) {
-             if (getsockname(sock->sock, (struct sockaddr *)&saddr, &slen)) {
-                 return NS_ERROR;
-             }
-             slen = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&saddr, slen);
+             slen = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sock->sa, slen);
              // Report about failed replies
              if (slen == -1) {
                  Ns_Log(Error,"DriverClose: %s: socket error: %s",sock->driver->name,strerror(errno));
