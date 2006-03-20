@@ -86,7 +86,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     init.version = NS_DRIVER_VERSION_1;
     init.name = "nsudp";
     init.proc = udpProc;
-    init.opts = NS_DRIVER_UDP;
+    init.opts = NS_DRIVER_UDP|NS_DRIVER_ASYNC;
     init.arg = drvPtr;
     init.path = NULL;
 
@@ -186,12 +186,6 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
              ns_free(sock->arg);
              sock->arg = 0;
          }
-
-         /*
-          * Mark it here so driver thread will not use close queue for that socket
-          */
-
-         sock->sock = INVALID_SOCKET;
          return NS_OK;
 
      case DriverKeep:
@@ -234,7 +228,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     }
     if (Ns_GetSockAddr(&sa, address, port) != NS_OK) {
         sprintf((char*)buf, "%s:%d", address, port);
-        Tcl_AppendResult(interp, "invalid address ", address, 0);
+        Tcl_AppendResult(interp, "invalid address ", buf, 0);
         return TCL_ERROR;
     }
     sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -290,7 +284,6 @@ resend:
            len = recvfrom(sock, buf, sizeof(buf)-1, 0, (struct sockaddr*)&sa, &salen);
            if (len > 0) {
                Tcl_DStringAppend(&ds, (char*)buf, len);
-               Ns_Log(Error, "recv %d bytes", len);
            }
        }
     } while (stream);
