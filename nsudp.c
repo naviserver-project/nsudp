@@ -150,7 +150,7 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
          }
 
          /*
-          * if packetsize is zero that measn send every given chunk in separate UDP packet,
+          * if packetsize is zero that means send every given chunk in separate UDP packet,
           * otherwise try to buffer and send data in packetsize chunks
           */
 
@@ -189,7 +189,7 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
          return NS_OK;
 
      case DriverKeep:
-     case DriverAccept:
+     case DriverQueue:
          break;
     }
     return NS_ERROR;
@@ -207,7 +207,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     char *address = 0, *data = 0;
     int i, sock, len, port, rc = TCL_OK;
     int stream = 0, timeout = 5, retries = 1, noreply = 0;
-        
+
     Ns_ObjvSpec opts[] = {
         {"-timeout",  Ns_ObjvInt,   &timeout, NULL},
         {"-noreply",  Ns_ObjvInt,   &noreply, NULL},
@@ -237,7 +237,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
         return TCL_ERROR;
     }
     /* To support brodcasting addresses */
-    i = 1;                                                                                                      
+    i = 1;
     setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int));
 
 resend:
