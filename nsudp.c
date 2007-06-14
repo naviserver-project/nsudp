@@ -196,36 +196,39 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
 }
 
 static int
-UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
+UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 {
     fd_set fds;
     unsigned char buf[16384];
     struct timeval tv;
     Tcl_DString ds;
+    Tcl_Obj *objd;
     struct sockaddr_in sa;
     socklen_t salen = sizeof(sa);
-    char *address = 0, *data = 0;
+    char *address = 0;
+    unsigned char *data;
     int i, sock, len, port, rc = TCL_OK;
     int stream = 0, timeout = 5, retries = 1, noreply = 0;
 
     Ns_ObjvSpec opts[] = {
         {"-timeout",  Ns_ObjvInt,   &timeout, NULL},
-        {"-noreply",  Ns_ObjvInt,   &noreply, NULL},
+        {"-noreply",  Ns_ObjvBool,  &noreply, (void*)1},
         {"-retries",  Ns_ObjvInt,   &retries, NULL},
         {"-stream",   Ns_ObjvInt,   &stream,  NULL},
-        {"--",        Ns_ObjvBreak,  NULL,    NULL},
+        {"--",        Ns_ObjvBreak, NULL,     NULL},
         {NULL, NULL, NULL, NULL}
     };
     Ns_ObjvSpec args[] = {
         {"address",  Ns_ObjvString, &address, NULL},
-        {"port",  Ns_ObjvInt, &port, NULL},
-        {"data",  Ns_ObjvString, &data, &len},
+        {"port",     Ns_ObjvInt,    &port,    NULL},
+        {"data",     Ns_ObjvObj,    &objd,    NULL},
         {NULL, NULL, NULL, NULL}
     };
 
     if (Ns_ParseObjv(opts, args, interp, 1, objc, objv) != NS_OK) {
       return TCL_ERROR;
     }
+
     if (Ns_GetSockAddr(&sa, address, port) != NS_OK) {
         sprintf((char*)buf, "%s:%d", address, port);
         Tcl_AppendResult(interp, "invalid address ", buf, 0);
@@ -239,6 +242,8 @@ UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[])
     /* To support brodcasting addresses */
     i = 1;
     setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int));
+
+    data = Tcl_GetByteArrayFromObj(objd, &len);
 
 resend:
     if (sendto(sock, data, len, 0, (struct sockaddr*)&sa,sizeof(sa)) < 0) {
