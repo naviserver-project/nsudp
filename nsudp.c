@@ -246,7 +246,10 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
     data = Tcl_GetByteArrayFromObj(objd, &len);
 
 resend:
-    if (sendto(sock, data, len, 0, (struct sockaddr*)&sa,sizeof(sa)) < 0) {
+
+    Ns_Log(Notice, "nsudp: sending %d bytes to %s:%d", len, ns_inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+
+    if (sendto(sock, data, len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
         return TCL_ERROR;
     }
