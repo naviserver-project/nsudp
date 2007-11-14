@@ -51,17 +51,6 @@
 #define BUFFER_LEN 1024
 
 #include "ns.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <netdb.h>
-#include <errno.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <string.h>
 
 #define UDP_VERSION  "0.1"
 
