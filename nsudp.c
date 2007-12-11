@@ -192,19 +192,20 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
     struct timeval tv;
     Tcl_DString ds;
     Tcl_Obj *objd;
-    struct sockaddr_in sa;
-    socklen_t salen = sizeof(sa);
-    char *address = 0;
     unsigned char *data;
+    struct sockaddr_in sa, ba;
+    socklen_t salen = sizeof(sa);
+    char *address = NULL, *bindaddr = NULL;
     int i, sock, len, port, rc = TCL_OK;
     int stream = 0, timeout = 5, retries = 1, noreply = 0;
 
     Ns_ObjvSpec opts[] = {
-        {"-timeout",  Ns_ObjvInt,   &timeout, NULL},
-        {"-noreply",  Ns_ObjvBool,  &noreply, (void*)1},
-        {"-retries",  Ns_ObjvInt,   &retries, NULL},
-        {"-stream",   Ns_ObjvInt,   &stream,  NULL},
-        {"--",        Ns_ObjvBreak, NULL,     NULL},
+        {"-timeout",  Ns_ObjvInt,    &timeout,  NULL},
+        {"-noreply",  Ns_ObjvBool,   &noreply,  (void*)1},
+        {"-retries",  Ns_ObjvInt,    &retries,  NULL},
+        {"-stream",   Ns_ObjvInt,    &stream,   NULL},
+        {"-bind",     Ns_ObjvString, &bindaddr, NULL},
+        {"--",        Ns_ObjvBreak,  NULL,      NULL},
         {NULL, NULL, NULL, NULL}
     };
     Ns_ObjvSpec args[] = {
@@ -223,14 +224,25 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
         Tcl_AppendResult(interp, "invalid address ", buf, 0);
         return TCL_ERROR;
     }
+
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         Tcl_AppendResult(interp, "socket error ", strerror(errno), 0);
         return TCL_ERROR;
     }
-    /* To support brodcasting addresses */
+    // To support brodcasting addresses
     i = 1;
     setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int));
+
+    // Bind to local address
+    if (bindaddr != NULL && Ns_GetSockAddr(&ba, bindaddr, 0) == NS_OK) {
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(int));
+        if (bind(sock, (struct sockaddr *)&ba, sizeof(ba)) != 0) {
+            Tcl_AppendResult(interp, "bind error ", strerror(errno), 0);
+            close(sock);
+            return TCL_ERROR;
+        }
+    }
 
     data = Tcl_GetByteArrayFromObj(objd, &len);
 
@@ -240,6 +252,7 @@ resend:
 
     if (sendto(sock, data, len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
+        close(sock);
         return TCL_ERROR;
     }
     if (noreply) {
