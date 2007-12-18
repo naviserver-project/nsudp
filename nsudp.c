@@ -75,7 +75,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     init.version = NS_DRIVER_VERSION_1;
     init.name = "nsudp";
     init.proc = udpProc;
-    init.opts = NS_DRIVER_UDP|NS_DRIVER_ASYNC;
+    init.opts = NS_DRIVER_UDP;
     init.arg = drvPtr;
     init.path = NULL;
 
@@ -151,7 +151,7 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
              }
              len = sendto(sock->sock, ds->string, len, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
              if (len == -1) {
-                 Ns_Log(Error,"DriverSend: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+                 Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
              }
 
              /*
@@ -168,7 +168,7 @@ udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
              if (ds->length > 0) {
                  len = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
                  if (len == -1) {
-                     Ns_Log(Error,"DriverClose: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, ds->length, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+                     Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, ds->length, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
                  }
              }
              Tcl_DStringFree(ds);
@@ -248,7 +248,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 
 resend:
 
-    Ns_Log(Notice, "nsudp: sending %d bytes to %s:%d", len, ns_inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+    Ns_Log(Notice, "nsudp: sending %d bytes to %s:%d from %s", len, ns_inet_ntoa(sa.sin_addr), ntohs(sa.sin_port), ns_inet_ntoa(ba.sin_addr));
 
     if (sendto(sock, data, len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
