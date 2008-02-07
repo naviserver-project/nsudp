@@ -239,7 +239,7 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(int));
         if (bind(sock, (struct sockaddr *)&ba, sizeof(ba)) != 0) {
             Tcl_AppendResult(interp, "bind error ", strerror(errno), 0);
-            close(sock);
+            ns_sockclose(sock);
             return TCL_ERROR;
         }
     }
@@ -252,11 +252,11 @@ resend:
 
     if (sendto(sock, data, len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
-        close(sock);
+        ns_sockclose(sock);
         return TCL_ERROR;
     }
     if (noreply) {
-        close(sock);
+        ns_sockclose(sock);
         return TCL_OK;
     }
     memset(buf,0,sizeof(buf));
@@ -298,7 +298,7 @@ resend:
        }
     } while (stream);
 done:
-    close(sock);
+    ns_sockclose(sock);
     Tcl_SetObjResult(interp, Tcl_NewByteArrayObj((unsigned char*)ds.string, ds.length));
     Tcl_DStringFree(&ds);
     return rc;
