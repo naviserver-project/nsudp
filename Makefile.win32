@@ -1,8 +1,0 @@
-DLL      = nsudp
-OBJS     = nsudp.o
-
-!ifdef NAVISERVER
-!include  $(NAVISERVER)\include\Makefile.win32
-!else
-include  c:\naviserver\include\Makefile.win32
-!endif
