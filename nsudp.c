@@ -58,7 +58,18 @@ typedef struct {
    int packetsize;
 } UdpDriver;
 
-static Ns_DriverProc udpProc;
+/*
+ * Local functions defined in this file.
+ */
+
+static Ns_DriverListenProc Listen;
+static Ns_DriverAcceptProc Accept;
+static Ns_DriverRecvProc Recv;
+static Ns_DriverSendProc Send;
+static Ns_DriverSendFileProc SendFile;
+static Ns_DriverKeepProc Keep;
+static Ns_DriverCloseProc Close;
+
 static int UdpInterpInit(Tcl_Interp *interp, void *arg);
 static int UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[]);
 
@@ -70,25 +81,26 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     UdpDriver *drvPtr;
     Ns_DriverInitData init;
 
-    drvPtr = ns_calloc(1, sizeof(UdpDriver));
-
-    init.version = NS_DRIVER_VERSION_1;
-    init.name = "nsudp";
-    init.proc = udpProc;
-    init.opts = NS_DRIVER_UDP;
-    init.arg = drvPtr;
-    init.path = NULL;
-
-    if (Ns_DriverInit(server, module, &init) != NS_OK) {
-        Ns_Log(Error, "nsudp: driver init failed.");
-        ns_free(drvPtr);
-        return NS_ERROR;
-    }
     path = Ns_ConfigGetPath(server,module,NULL);
+    drvPtr = ns_calloc(1, sizeof(UdpDriver));
     drvPtr->packetsize = Ns_ConfigIntRange(path, "packetsize", -1, -1, INT_MAX);
 
+    init.version = NS_DRIVER_VERSION_2;
+    init.name = "nsudp";
+    init.listenProc = Listen;
+    init.acceptProc = Accept;
+    init.recvProc = Recv;
+    init.sendProc = Send;
+    init.sendFileProc = SendFile;
+    init.keepProc = Keep;
+    init.closeProc = Close;
+    init.opts = NS_DRIVER_ASYNC;
+    init.arg = drvPtr;
+    init.path = path;
+
     Ns_TclRegisterTrace(server, UdpInterpInit, drvPtr, NS_TCL_TRACE_CREATE);
-    return NS_OK;
+
+    return Ns_DriverInit(server, module, &init);
 }
 
 static int
@@ -101,87 +113,227 @@ UdpInterpInit(Tcl_Interp *interp, void *arg)
 /*
  *----------------------------------------------------------------------
  *
- * udpProc --
+ * Listen --
  *
- *	Driver proc for UDP requests
+ *      Open a listening UDP socket in non-blocking mode.
  *
  * Results:
- *	NS_OK or NS_ERROR
+ *      The open socket or INVALID_SOCKET on error.
  *
  * Side effects:
- *  	None
+ *      None
+ *
+ *----------------------------------------------------------------------
+ */
+
+static SOCKET
+Listen(Ns_Driver *driver, CONST char *address, int port, int backlog)
+{
+    SOCKET sock;
+
+    sock = Ns_SockListenUdp((char*)address, port);
+    if (sock != INVALID_SOCKET) {
+        (void) Ns_SockSetNonBlocking(sock);
+    }
+    return sock;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Accept --
+ *
+ *      Accept a new TCP socket in non-blocking mode.
+ *
+ * Results:
+ *      NS_DRIVER_ACCEPT_DATA  - socket accepted, data present
+ *
+ * Side effects:
+ *      None.
+ *
+ *----------------------------------------------------------------------
+ */
+ 
+static NS_DRIVER_ACCEPT_STATUS
+Accept(Ns_Sock *sock, SOCKET listensock,
+       struct sockaddr *sockaddrPtr, int *socklenPtr)
+{
+    sock->sock = listensock;
+    return NS_DRIVER_ACCEPT_DATA;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Recv --
+ *
+ *      Receive data into given buffers.
+ *
+ * Results:
+ *      Total number of bytes received or -1 on error or timeout.
+ *
+ * Side effects:
+ *      None
+ *
+ *----------------------------------------------------------------------
+ */
+
+static ssize_t
+Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
+     Ns_Time *timeoutPtr, int flags)
+{
+     socklen_t size = sizeof(struct sockaddr_in);
+
+     return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&sock->sa, &size);
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Send --
+ *
+ *      Send data from given buffers.
+ *
+ * Results:
+ *      Total number of bytes sent or -1 on error or timeout.
+ *
+ * Side effects:
+ *      May block once for driver sendwait timeout seconds if first
+ *      attempt would block.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static ssize_t
+Send(Ns_Sock *sock, struct iovec *bufs, int nbufs,
+     Ns_Time *timeoutPtr, int flags)
+{
+    ssize_t len, size;
+    Tcl_DString *ds = sock->arg;
+    UdpDriver *drvPtr = sock->driver->arg;
+
+    if (ds == NULL) {
+        ds = ns_calloc(1, sizeof(Tcl_DString));
+        Tcl_DStringInit(ds);
+        sock->arg = ds;
+    }
+
+    for (len = size = 0; len < nbufs; len++) {
+        Tcl_DStringAppend(ds, bufs[len].iov_base, bufs[len].iov_len);
+        size += bufs[len].iov_len;
+    }
+
+    /*
+     * if packetsize is zero that means send every given chunk in separate UDP packet,
+     * otherwise try to buffer and send data in packetsize chunks
+     */
+
+    while (drvPtr->packetsize > -1 && ds->length >= drvPtr->packetsize) {
+        if (drvPtr->packetsize > 0) {
+            len = drvPtr->packetsize;
+        } else {
+            len = ds->length;
+        }
+        len = sendto(sock->sock, ds->string, len, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
+        if (len == -1) {
+            Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+        }
+
+        /*
+         * Move remaining bytes to the beginning of the buffer for the next iteration
+         */
+
+        memmove(ds->string, ds->string + len, ds->length - len);
+        Tcl_DStringSetLength(ds, ds->length - len);
+    }
+    return size;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SendFile --
+ *
+ *      Send given file buffers directly to socket.
+ *
+ * Results:
+ *      Total number of bytes sent or -1 on error or timeout.
+ *
+ * Side effects:
+ *      May block once for driver sendwait timeout seconds if first
+ *      attempt would block.
+ *      May block 1 or more times due to disk IO.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static ssize_t
+SendFile(Ns_Sock *sock, Ns_FileVec *bufs, int nbufs,
+         Ns_Time *timeoutPtr, int flags)
+{
+    return Ns_SockSendFileBufsIndirect(sock->sock, bufs, nbufs, timeoutPtr, flags, Ns_SockSendBufs);
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Keep --
+ *
+ *      Cannot do keep alives with UDP
+ *
+ * Results:
+ *      0, always.
+ *
+ * Side effects:
+ *      None.
  *
  *----------------------------------------------------------------------
  */
 
 static int
-udpProc(Ns_DriverCmd cmd, Ns_Sock *sock, struct iovec *bufs, int nbufs)
+Keep(Ns_Sock *sock)
 {
-    int len, size = 0;
+    return 0;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Close --
+ *
+ *      Close the connection socket.
+ *
+ * Results:
+ *      None.
+ *
+ * Side effects:
+ *      Does not close UDP socket
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void
+Close(Ns_Sock *sock)
+{
     Tcl_DString *ds = sock->arg;
-    UdpDriver *drvPtr = sock->driver->arg;
 
-    switch(cmd) {
-     case DriverRecv:
-         size = sizeof(struct sockaddr_in);
-         len = recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&sock->sa, (socklen_t*)&size);
-         return len;
-
-     case DriverSend:
-         if (ds == NULL) {
-             ds = ns_calloc(1, sizeof(Tcl_DString));
-             Tcl_DStringInit(ds);
-             sock->arg = ds;
-         }
-         for (len = 0; len < nbufs; len++) {
-             Tcl_DStringAppend(ds, bufs[len].iov_base, bufs[len].iov_len);
-             size += bufs[len].iov_len;
-         }
-
-         /*
-          * if packetsize is zero that means send every given chunk in separate UDP packet,
-          * otherwise try to buffer and send data in packetsize chunks
-          */
-
-         while (drvPtr->packetsize > -1 && ds->length >= drvPtr->packetsize) {
-             if (drvPtr->packetsize > 0) {
-                 len = drvPtr->packetsize;
-             } else {
-                 len = ds->length;
-             }
-             len = sendto(sock->sock, ds->string, len, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
-             if (len == -1) {
-                 Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
-             }
-
-             /*
-              * Move remaining bytes to the beginning of the buffer for the next iteration
-              */
-
-             memmove(ds->string, ds->string + len, ds->length - len);
-             Tcl_DStringSetLength(ds, ds->length - len);
-         }
-         return size;
-
-     case DriverClose:
-         if (ds != NULL) {
-             if (ds->length > 0) {
-                 len = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
-                 if (len == -1) {
-                     Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, ds->length, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
-                 }
-             }
-             Tcl_DStringFree(ds);
-             ns_free(sock->arg);
-             sock->arg = 0;
-         }
-         return NS_OK;
-
-     case DriverKeep:
-     case DriverQueue:
-         break;
+    if (ds != NULL) {
+        if (ds->length > 0) {
+            int len = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
+            if (len == -1) {
+                Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, ds->length, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+            }
+        }
+        Tcl_DStringFree(ds);
+        sock->arg = NULL;
     }
-    return NS_ERROR;
+    sock->sock = -1;
 }
 
 static int
