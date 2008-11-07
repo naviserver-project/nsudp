@@ -66,7 +66,6 @@ static Ns_DriverListenProc Listen;
 static Ns_DriverAcceptProc Accept;
 static Ns_DriverRecvProc Recv;
 static Ns_DriverSendProc Send;
-static Ns_DriverSendFileProc SendFile;
 static Ns_DriverKeepProc Keep;
 static Ns_DriverCloseProc Close;
 
@@ -91,7 +90,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     init.acceptProc = Accept;
     init.recvProc = Recv;
     init.sendProc = Send;
-    init.sendFileProc = SendFile;
+    init.sendFileProc = NULL;
     init.keepProc = Keep;
     init.closeProc = Close;
     init.opts = NS_DRIVER_ASYNC;
@@ -250,32 +249,6 @@ Send(Ns_Sock *sock, struct iovec *bufs, int nbufs,
         Tcl_DStringSetLength(ds, ds->length - len);
     }
     return size;
-}
-
-
-/*
- *----------------------------------------------------------------------
- *
- * SendFile --
- *
- *      Send given file buffers directly to socket.
- *
- * Results:
- *      Total number of bytes sent or -1 on error or timeout.
- *
- * Side effects:
- *      May block once for driver sendwait timeout seconds if first
- *      attempt would block.
- *      May block 1 or more times due to disk IO.
- *
- *----------------------------------------------------------------------
- */
-
-static ssize_t
-SendFile(Ns_Sock *sock, Ns_FileVec *bufs, int nbufs,
-         Ns_Time *timeoutPtr, int flags)
-{
-    return Ns_SockSendFileBufsIndirect(sock->sock, bufs, nbufs, timeoutPtr, flags, Ns_SockSendBufs);
 }
 
 
