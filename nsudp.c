@@ -89,6 +89,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     init.listenProc = Listen;
     init.acceptProc = Accept;
     init.recvProc = Recv;
+    init.requestProc = NULL;
     init.sendProc = Send;
     init.sendFileProc = NULL;
     init.keepProc = Keep;
@@ -238,7 +239,8 @@ Send(Ns_Sock *sock, struct iovec *bufs, int nbufs,
         }
         len = sendto(sock->sock, ds->string, len, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
         if (len == -1) {
-            Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+            Ns_Log(Error,"nsudp: %s: FD %d: sendto %" PRIdz " bytes to %s: %s", 
+		   sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
         }
 
         /*
@@ -300,7 +302,9 @@ Close(Ns_Sock *sock)
         if (ds->length > 0) {
             int len = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
             if (len == -1) {
-                Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", sock->driver->name, sock->sock, ds->length, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+                Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", 
+		       sock->driver->name, sock->sock, ds->length, 
+		       ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
             }
         }
         Tcl_DStringFree(ds);
