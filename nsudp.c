@@ -29,15 +29,21 @@
  *
  * Usage:
  *
- *   nsd.tcl
+ *   Configure in the NaviServer config file:
  *
+ *   ###############################################
+ *   ...
  *   ns_section    ns/servers/server/modules
  *   ns_param      nsudp        nsudp.so
  *
  *   ns_section    ns/servers/server/module/nsudp
  *   ns_param      address    0.0.0.0
  *   ns_param      port       80
+ *   ...
+ *   ###############################################
  *
+ * 
+ * To send udp packages, use:
  *
  *   ns_udp ?-timeout N? ?-noreply? ipaddr port data
  *
@@ -78,7 +84,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
 {
     char *path;
     UdpDriver *drvPtr;
-    Ns_DriverInitData init;
+    Ns_DriverInitData init = {0};
 
     path = Ns_ConfigGetPath(server,module,NULL);
     drvPtr = ns_calloc(1, sizeof(UdpDriver));
@@ -359,11 +365,11 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
         Tcl_AppendResult(interp, "socket error ", strerror(errno), 0);
         return TCL_ERROR;
     }
-    // To support brodcasting addresses
+    /* To support brodcasting addresses */
     i = 1;
     setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int));
 
-    // Bind to local address
+    /* Bind to local address */
     if (bindaddr != NULL && Ns_GetSockAddr(&ba, bindaddr, 0) == NS_OK) {
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(int));
         if (bind(sock, (struct sockaddr *)&ba, sizeof(ba)) != 0) {
