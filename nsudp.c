@@ -188,11 +188,12 @@ Accept(Ns_Sock *sock, SOCKET listensock,
 
 static ssize_t
 Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
-     Ns_Time *timeoutPtr, int flags)
+     Ns_Time *timeoutPtr, unsigned int flags)
 {
      socklen_t size = sizeof(struct sockaddr_in);
 
-     return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, (struct sockaddr*)&sock->sa, &size);
+     return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, 
+		     (struct sockaddr*)&sock->sa, &size);
 }
 
 
@@ -215,7 +216,7 @@ Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
 
 static ssize_t
 Send(Ns_Sock *sock, struct iovec *bufs, int nbufs,
-     Ns_Time *timeoutPtr, int flags)
+     Ns_Time *timeoutPtr, unsigned int flags)
 {
     ssize_t len, size;
     Tcl_DString *ds = sock->arg;
@@ -243,10 +244,12 @@ Send(Ns_Sock *sock, struct iovec *bufs, int nbufs,
         } else {
             len = ds->length;
         }
-        len = sendto(sock->sock, ds->string, len, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
+        len = sendto(sock->sock, ds->string, len, 0, 
+		     (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
         if (len == -1) {
             Ns_Log(Error,"nsudp: %s: FD %d: sendto %" PRIdz " bytes to %s: %s", 
-		   sock->driver->name, sock->sock, len, ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+		   sock->driver->name, sock->sock, len, 
+		   ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
         }
 
         /*
