@@ -138,7 +138,7 @@ Listen(Ns_Driver *driver, CONST char *address, int port, int backlog)
     SOCKET sock;
 
     sock = Ns_SockListenUdp((char*)address, port);
-    if (sock != INVALID_SOCKET) {
+    if (sock != NS_INVALID_SOCKET) {
         (void) Ns_SockSetNonBlocking(sock);
     }
     return sock;
@@ -163,7 +163,7 @@ Listen(Ns_Driver *driver, CONST char *address, int port, int backlog)
  
 static NS_DRIVER_ACCEPT_STATUS
 Accept(Ns_Sock *sock, SOCKET listensock,
-       struct sockaddr *sockaddrPtr, int *socklenPtr)
+       struct sockaddr *sockaddrPtr, socklen_t *socklenPtr)
 {
     sock->sock = listensock;
     return NS_DRIVER_ACCEPT_DATA;
@@ -215,8 +215,8 @@ Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
  */
 
 static ssize_t
-Send(Ns_Sock *sock, struct iovec *bufs, int nbufs,
-     Ns_Time *timeoutPtr, unsigned int flags)
+Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
+     const Ns_Time *timeoutPtr, unsigned int flags)
 {
     ssize_t len, size;
     Tcl_DString *ds = sock->arg;
