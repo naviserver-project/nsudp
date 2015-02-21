@@ -74,15 +74,15 @@ static Ns_DriverRecvProc Recv;
 static Ns_DriverSendProc Send;
 static Ns_DriverKeepProc Keep;
 static Ns_DriverCloseProc Close;
+static Ns_TclTraceProc UdpInterpInit;
 
-static int UdpInterpInit(Tcl_Interp *interp, void *arg);
 static int UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[]);
 
 NS_EXPORT int Ns_ModuleVersion = 1;
 
 NS_EXPORT int Ns_ModuleInit(char *server, char *module)
 {
-    char *path;
+    const char *path;
     UdpDriver *drvPtr;
     Ns_DriverInitData init = {0};
 
@@ -110,9 +110,9 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
 }
 
 static int
-UdpInterpInit(Tcl_Interp *interp, void *arg)
+UdpInterpInit(Tcl_Interp *interp, const void *arg)
 {
-    Tcl_CreateObjCommand(interp, "ns_udp", UdpCmd, arg, NULL);
+    Tcl_CreateObjCommand(interp, "ns_udp", UdpCmd, (ClientData)arg, NULL);
     return NS_OK;
 }
 
@@ -124,7 +124,7 @@ UdpInterpInit(Tcl_Interp *interp, void *arg)
  *      Open a listening UDP socket in non-blocking mode.
  *
  * Results:
- *      The open socket or INVALID_SOCKET on error.
+ *      The open socket or NS_INVALID_SOCKET on error.
  *
  * Side effects:
  *      None
@@ -268,10 +268,10 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
  *
  * Keep --
  *
- *      Cannot do keep alives with UDP
+ *      Cannot do keep-alives with UDP
  *
  * Results:
- *      0, always.
+ *      NS_FALSE, always.
  *
  * Side effects:
  *      None.
@@ -279,10 +279,10 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
  *----------------------------------------------------------------------
  */
 
-static int
+static bool
 Keep(Ns_Sock *sock)
 {
-    return 0;
+    return NS_FALSE;
 }
 
 
@@ -441,3 +441,11 @@ done:
     Tcl_DStringFree(&ds);
     return rc;
 }
+/*
+ * Local Variables:
+ * mode: c
+ * c-basic-offset: 4
+ * fill-column: 78
+ * indent-tabs-mode: nil
+ * End:
+ */

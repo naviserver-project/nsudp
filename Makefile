@@ -10,7 +10,7 @@ MOD      =  nsudp.so
 #
 # Objects to build.
 #
-OBJS     = nsudp.o
+MODOBJS     = nsudp.o
 
 include  $(NAVISERVER)/include/Makefile.module
 
