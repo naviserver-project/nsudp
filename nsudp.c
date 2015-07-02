@@ -297,7 +297,9 @@ Keep(Ns_Sock *sock)
  *      None.
  *
  * Side effects:
- *      Does not close UDP socket
+ *
+ *      Sends the remainder of the buffer. It Does not close UDP socket (since
+ *      there is nothing to close).
  *
  *----------------------------------------------------------------------
  */
@@ -319,7 +321,7 @@ Close(Ns_Sock *sock)
         Tcl_DStringFree(ds);
         sock->arg = NULL;
     }
-    sock->sock = -1;
+    sock->sock = NS_INVALID_SOCKET;
 }
 
 static int
