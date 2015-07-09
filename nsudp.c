@@ -100,7 +100,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     init.sendFileProc = NULL;
     init.keepProc = Keep;
     init.closeProc = Close;
-    init.opts = NS_DRIVER_ASYNC;
+    init.opts = NS_DRIVER_ASYNC|NS_DRIVER_UDP;
     init.arg = drvPtr;
     init.path = path;
 

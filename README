@@ -20,11 +20,18 @@ adds new ns_udp command for sending UDP packets.
    ns_param      port       80
  
  Usage
- 
-   ns_udp ?-timeout N? ?-noreply? ipaddr port data
- 
+
+   Tcl commands provided by nsudp:
+
+      ns_udp ?-timeout N? ?-noreply? ipaddr port data
+      
+   Example:
       ns_udp 127.0.0.1 80 "GET / HTTP/1.0\n\n"
- 
+
+   One might find as well testing with nc (netcat) useful:
+   
+       nc -u 127.0.0.1 80 < REQUEST-FILE
+       
  Authors
  
      Vlad Seryakov vlad@crystalballinc.com
