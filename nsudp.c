@@ -86,7 +86,7 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     UdpDriver *drvPtr;
     Ns_DriverInitData init = {0};
 
-    path = Ns_ConfigGetPath(server,module,NULL);
+    path = Ns_ConfigGetPath(server, module, (char *)0);
     drvPtr = ns_calloc(1, sizeof(UdpDriver));
     drvPtr->packetsize = Ns_ConfigIntRange(path, "packetsize", -1, -1, INT_MAX);
 
