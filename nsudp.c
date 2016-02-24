@@ -37,7 +37,7 @@
  *   ns_param      nsudp        nsudp.so
  *
  *   ns_section    ns/servers/server/module/nsudp
- *   ns_param      address    0.0.0.0
+ *   ns_param      address    ::
  *   ns_param      port       80
  *   ...
  *   ###############################################
@@ -47,18 +47,19 @@
  *
  *   ns_udp ?-timeout N? ?-noreply? ipaddr port data
  *
- *      ns_udp 127.0.0.1 80 "GET / HTTP/1.0\n\n"
+ *      ns_udp ::1 80 "GET / HTTP/1.0\n\n"
  *
  * Authors
  *
- *     Vlad Seryakov vlad@crystalballinc.com
+ *     Vlad Seryakov   vlad@crystalballinc.com
+ *     Gustaf Neumann  neumann@wu-wien.ac.at
  */
 
 #define BUFFER_LEN 1024
 
 #include "ns.h"
 
-#define UDP_VERSION  "0.1"
+#define NSUDP_VERSION  "0.2"
 
 typedef struct {
    int packetsize;
@@ -76,11 +77,11 @@ static Ns_DriverKeepProc Keep;
 static Ns_DriverCloseProc Close;
 static Ns_TclTraceProc UdpInterpInit;
 
-static int UdpCmd(ClientData arg, Tcl_Interp *interp,int objc,Tcl_Obj *CONST objv[]);
+static Tcl_ObjCmdProc UdpObjCmd;
 
 NS_EXPORT int Ns_ModuleVersion = 1;
 
-NS_EXPORT int Ns_ModuleInit(char *server, char *module)
+NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
 {
     const char *path;
     UdpDriver *drvPtr;
@@ -90,7 +91,11 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
     drvPtr = ns_calloc(1, sizeof(UdpDriver));
     drvPtr->packetsize = Ns_ConfigIntRange(path, "packetsize", -1, -1, INT_MAX);
 
+#ifdef HAVE_IPV6
+    init.version = NS_DRIVER_VERSION_3;
+#else
     init.version = NS_DRIVER_VERSION_2;
+#endif    
     init.name = "nsudp";
     init.listenProc = Listen;
     init.acceptProc = Accept;
@@ -112,7 +117,9 @@ NS_EXPORT int Ns_ModuleInit(char *server, char *module)
 static int
 UdpInterpInit(Tcl_Interp *interp, const void *arg)
 {
-    Tcl_CreateObjCommand(interp, "ns_udp", UdpCmd, (ClientData)arg, NULL);
+    Tcl_CreateObjCommand(interp, "ns_udp", UdpObjCmd, (ClientData)arg, NULL);
+    Ns_Log(Notice, "nsudp: version %s loaded", NSUDP_VERSION);
+
     return NS_OK;
 }
 
@@ -132,10 +139,10 @@ UdpInterpInit(Tcl_Interp *interp, const void *arg)
  *----------------------------------------------------------------------
  */
 
-static SOCKET
-Listen(Ns_Driver *driver, CONST char *address, int port, int backlog)
+static NS_SOCKET
+Listen(Ns_Driver *driver, const char *address, int port, int backlog)
 {
-    SOCKET sock;
+    NS_SOCKET sock;
 
     sock = Ns_SockListenUdp((char*)address, port);
     if (sock != NS_INVALID_SOCKET) {
@@ -162,10 +169,11 @@ Listen(Ns_Driver *driver, CONST char *address, int port, int backlog)
  */
  
 static NS_DRIVER_ACCEPT_STATUS
-Accept(Ns_Sock *sock, SOCKET listensock,
-       struct sockaddr *sockaddrPtr, socklen_t *socklenPtr)
+Accept(Ns_Sock *sock, NS_SOCKET listensock,
+       struct sockaddr *saPtr, socklen_t *socklenPtr)
 {
     sock->sock = listensock;
+    
     return NS_DRIVER_ACCEPT_DATA;
 }
 
@@ -190,10 +198,15 @@ static ssize_t
 Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
      Ns_Time *timeoutPtr, unsigned int flags)
 {
-     socklen_t size = sizeof(struct sockaddr_in);
-
-     return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, 
-		     (struct sockaddr*)&sock->sa, &size);
+    socklen_t socklen;
+    
+    /*
+     * Provide the actual size of the buffer since the structure is not
+     * initialized (no address familiy is known).
+     */
+    socklen = (socklen_t)sizeof(sock->sa);
+    return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, 
+                    (struct sockaddr *)&(sock->sa), &socklen);
 }
 
 
@@ -221,6 +234,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
     ssize_t len, size;
     Tcl_DString *ds = sock->arg;
     UdpDriver *drvPtr = sock->driver->arg;
+    struct sockaddr *saPtr = (struct sockaddr *)&(sock->sa);
 
     if (ds == NULL) {
         ds = ns_calloc(1, sizeof(Tcl_DString));
@@ -245,11 +259,13 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
             len = ds->length;
         }
         len = sendto(sock->sock, ds->string, len, 0, 
-		     (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
+		     saPtr, Ns_SockaddrGetSockLen(saPtr));
         if (len == -1) {
+            char ipString[NS_IPADDR_SIZE];
             Ns_Log(Error,"nsudp: %s: FD %d: sendto %" PRIdz " bytes to %s: %s", 
 		   sock->driver->name, sock->sock, len, 
-		   ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+		   ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
+                   strerror(errno));
         }
 
         /*
@@ -311,11 +327,17 @@ Close(Ns_Sock *sock)
 
     if (ds != NULL) {
         if (ds->length > 0) {
-            int len = sendto(sock->sock, ds->string, ds->length, 0, (struct sockaddr*)&sock->sa, sizeof(struct sockaddr_in));
+            struct sockaddr *saPtr = (struct sockaddr *)&(sock->sa);
+            int              len;
+
+            len = sendto(sock->sock, ds->string, ds->length, 0,
+                         saPtr, Ns_SockaddrGetSockLen(saPtr));
             if (len == -1) {
+                char ipString[NS_IPADDR_SIZE];
                 Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", 
 		       sock->driver->name, sock->sock, ds->length, 
-		       ns_inet_ntoa(sock->sa.sin_addr), strerror(errno));
+		       ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
+                       strerror(errno));
             }
         }
         Tcl_DStringFree(ds);
@@ -325,7 +347,7 @@ Close(Ns_Sock *sock)
 }
 
 static int
-UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+UdpObjCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST* objv)
 {
     fd_set fds;
     unsigned char buf[16384];
@@ -333,8 +355,10 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
     Tcl_DString ds;
     Tcl_Obj *objd;
     unsigned char *data;
-    struct sockaddr_in sa, ba;
-    socklen_t salen = sizeof(sa);
+    struct NS_SOCKADDR_STORAGE sa, ba;
+    struct sockaddr
+        *saPtr = (struct sockaddr *)&sa,
+        *baPtr = (struct sockaddr *)&ba;
     char *address = NULL, *bindaddr = NULL;
     int i, sock, len, port, rc = TCL_OK;
     int stream = 0, timeout = 5, retries = 1, noreply = 0;
@@ -359,13 +383,13 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
       return TCL_ERROR;
     }
 
-    if (Ns_GetSockAddr(&sa, address, port) != NS_OK) {
+    if (Ns_GetSockAddr(saPtr, address, port) != NS_OK) {
         sprintf((char*)buf, "%s:%d", address, port);
         Tcl_AppendResult(interp, "invalid address ", buf, 0);
         return TCL_ERROR;
     }
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    sock = socket(saPtr->sa_family, SOCK_DGRAM, 0);
     if (sock < 0) {
         Tcl_AppendResult(interp, "socket error ", strerror(errno), 0);
         return TCL_ERROR;
@@ -375,9 +399,9 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
     setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &i, sizeof(int));
 
     /* Bind to local address */
-    if (bindaddr != NULL && Ns_GetSockAddr(&ba, bindaddr, 0) == NS_OK) {
+    if (bindaddr != NULL && Ns_GetSockAddr(baPtr, bindaddr, 0) == NS_OK) {
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(int));
-        if (bind(sock, (struct sockaddr *)&ba, sizeof(ba)) != 0) {
+        if (bind(sock, baPtr, Ns_SockaddrGetSockLen(baPtr)) != 0) {
             Tcl_AppendResult(interp, "bind error ", strerror(errno), 0);
             ns_sockclose(sock);
             return TCL_ERROR;
@@ -387,10 +411,16 @@ UdpCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
     data = Tcl_GetByteArrayFromObj(objd, &len);
 
 resend:
+    {
+        char saString[NS_IPADDR_SIZE], baString[NS_IPADDR_SIZE];
 
-    Ns_Log(Notice, "nsudp: sending %d bytes to %s:%d from %s", len, ns_inet_ntoa(sa.sin_addr), ntohs(sa.sin_port), ns_inet_ntoa(ba.sin_addr));
+        Ns_Log(Notice, "nsudp: sending %d bytes to %s:%d from %s", len,
+               ns_inet_ntop(saPtr, saString, sizeof(saString)),
+               Ns_SockaddrGetPort(saPtr),
+               ns_inet_ntop(baPtr, baString, sizeof(baString)));
+    }
 
-    if (sendto(sock, data, len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+    if (sendto(sock, data, len, 0, saPtr, Ns_SockaddrGetSockLen(saPtr)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
         ns_sockclose(sock);
         return TCL_ERROR;
@@ -431,7 +461,8 @@ resend:
             goto done;
        }
        if (FD_ISSET(sock, &fds)) {
-           len = recvfrom(sock, buf, sizeof(buf)-1, 0, (struct sockaddr*)&sa, &salen);
+           socklen_t socklen = Ns_SockaddrGetSockLen(saPtr);
+           len = recvfrom(sock, buf, sizeof(buf)-1, 0, saPtr, &socklen);
            if (len > 0) {
                Tcl_DStringAppend(&ds, (char*)buf, len);
            }

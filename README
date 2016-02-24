@@ -16,8 +16,8 @@ adds new ns_udp command for sending UDP packets.
    ns_param      nsudp        nsudp.so
  
    ns_section    ns/servers/server/module/nsudp
-   ns_param      address    0.0.0.0
-   ns_param      port       80
+   ns_param      address    ::1
+   ns_param      port       8000
  
  Usage
 
@@ -26,13 +26,14 @@ adds new ns_udp command for sending UDP packets.
       ns_udp ?-timeout N? ?-noreply? ipaddr port data
       
    Example:
-      ns_udp 127.0.0.1 80 "GET / HTTP/1.0\n\n"
+      ns_udp ::1 8000 "GET / HTTP/1.0\n\n"
 
    One might find as well testing with nc (netcat) useful:
    
-       nc -u 127.0.0.1 80 < REQUEST-FILE
+       echo "GET / HTTP/1.0\n\n" | nc -u ::1 8000
        
  Authors
  
-     Vlad Seryakov vlad@crystalballinc.com
+     Vlad Seryakov  vlad@crystalballinc.com
+     Gustaf Neumann neumann@wu-wien.ac.at
 
