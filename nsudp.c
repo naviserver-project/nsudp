@@ -80,6 +80,7 @@ static Ns_TclTraceProc UdpInterpInit;
 static Tcl_ObjCmdProc UdpObjCmd;
 
 NS_EXPORT int Ns_ModuleVersion = 1;
+NS_EXPORT Ns_ModuleInitProc Ns_ModuleInit;
 
 NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
 {
