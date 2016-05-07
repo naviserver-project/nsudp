@@ -92,11 +92,7 @@ NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
     drvPtr = ns_calloc(1, sizeof(UdpDriver));
     drvPtr->packetsize = Ns_ConfigIntRange(path, "packetsize", -1, -1, INT_MAX);
 
-#ifdef HAVE_IPV6
-    init.version = NS_DRIVER_VERSION_3;
-#else
-    init.version = NS_DRIVER_VERSION_2;
-#endif    
+    init.version = NS_DRIVER_VERSION_4;
     init.name = "nsudp";
     init.listenProc = Listen;
     init.acceptProc = Accept;
@@ -109,6 +105,8 @@ NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
     init.opts = NS_DRIVER_ASYNC|NS_DRIVER_UDP;
     init.arg = drvPtr;
     init.path = path;
+    init.protocol = "udp";
+    init.defport = 80;
 
     Ns_TclRegisterTrace(server, UdpInterpInit, drvPtr, NS_TCL_TRACE_CREATE);
 
