@@ -106,7 +106,7 @@ NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
     init.arg = drvPtr;
     init.path = path;
     init.protocol = "udp";
-    init.defport = 80;
+    init.defaultPort = 80;
 
     Ns_TclRegisterTrace(server, UdpInterpInit, drvPtr, NS_TCL_TRACE_CREATE);
 
