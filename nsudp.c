@@ -139,7 +139,7 @@ UdpInterpInit(Tcl_Interp *interp, const void *arg)
  */
 
 static NS_SOCKET
-Listen(Ns_Driver *driver, const char *address, int port, int backlog)
+Listen(Ns_Driver *driver, const char *address, unsigned short port, int backlog)
 {
     NS_SOCKET sock;
 
