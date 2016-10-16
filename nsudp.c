@@ -242,7 +242,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
     }
 
     for (len = size = 0; len < nbufs; len++) {
-        Tcl_DStringAppend(ds, bufs[len].iov_base, bufs[len].iov_len);
+        Tcl_DStringAppend(ds, bufs[len].iov_base, (int)bufs[len].iov_len);
         size += bufs[len].iov_len;
     }
 
@@ -257,7 +257,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
         } else {
             len = ds->length;
         }
-        len = sendto(sock->sock, ds->string, len, 0, 
+        len = sendto(sock->sock, ds->string, (size_t)len, 0, 
 		     saPtr, Ns_SockaddrGetSockLen(saPtr));
         if (len == -1) {
             char ipString[NS_IPADDR_SIZE];
@@ -272,7 +272,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
          */
 
         memmove(ds->string, ds->string + len, ds->length - len);
-        Tcl_DStringSetLength(ds, ds->length - len);
+        Tcl_DStringSetLength(ds, ds->length - (int)len);
     }
     return size;
 }
@@ -327,9 +327,9 @@ Close(Ns_Sock *sock)
     if (ds != NULL) {
         if (ds->length > 0) {
             struct sockaddr *saPtr = (struct sockaddr *)&(sock->sa);
-            int              len;
+            ssize_t          len;
 
-            len = sendto(sock->sock, ds->string, ds->length, 0,
+            len = sendto(sock->sock, ds->string, (size_t)ds->length, 0,
                          saPtr, Ns_SockaddrGetSockLen(saPtr));
             if (len == -1) {
                 char ipString[NS_IPADDR_SIZE];
@@ -358,11 +358,12 @@ UdpObjCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST* objv)
     struct sockaddr
         *saPtr = (struct sockaddr *)&sa,
         *baPtr = (struct sockaddr *)&ba;
-    char *address = NULL, *bindaddr = NULL;
-    int i, sock, len, port, rc = TCL_OK;
-    int stream = 0, timeout = 5, retries = 1, noreply = 0;
-
-    Ns_ObjvSpec opts[] = {
+    char          *address = NULL, *bindaddr = NULL;
+    int            i, sock, rc = TCL_OK;
+    int            stream = 0, timeout = 5, retries = 1, noreply = 0, intlen;
+    unsigned short port;
+    ssize_t        len;
+    Ns_ObjvSpec    opts[] = {
         {"-timeout",  Ns_ObjvInt,    &timeout,  NULL},
         {"-noreply",  Ns_ObjvBool,   &noreply,  (void*)1},
         {"-retries",  Ns_ObjvInt,    &retries,  NULL},
@@ -407,19 +408,19 @@ UdpObjCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST* objv)
         }
     }
 
-    data = Tcl_GetByteArrayFromObj(objd, &len);
-
+    data = Tcl_GetByteArrayFromObj(objd, &intlen);
+    len = (ssize_t)intlen;
 resend:
     {
         char saString[NS_IPADDR_SIZE], baString[NS_IPADDR_SIZE];
 
-        Ns_Log(Notice, "nsudp: sending %d bytes to %s:%d from %s", len,
+        Ns_Log(Notice, "nsudp: sending %" PRIdz "  bytes to %s:%d from %s", len,
                ns_inet_ntop(saPtr, saString, sizeof(saString)),
                Ns_SockaddrGetPort(saPtr),
                ns_inet_ntop(baPtr, baString, sizeof(baString)));
     }
 
-    if (sendto(sock, data, len, 0, saPtr, Ns_SockaddrGetSockLen(saPtr)) < 0) {
+    if (sendto(sock, data, (size_t)len, 0, saPtr, Ns_SockaddrGetSockLen(saPtr)) < 0) {
         Tcl_AppendResult(interp, "sendto error ", strerror(errno), 0);
         ns_sockclose(sock);
         return TCL_ERROR;
@@ -463,7 +464,7 @@ resend:
            socklen_t socklen = Ns_SockaddrGetSockLen(saPtr);
            len = recvfrom(sock, buf, sizeof(buf)-1, 0, saPtr, &socklen);
            if (len > 0) {
-               Tcl_DStringAppend(&ds, (char*)buf, len);
+               Tcl_DStringAppend(&ds, (char*)buf, (int)len);
            }
        }
     } while (stream);
