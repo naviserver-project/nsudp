@@ -139,11 +139,11 @@ UdpInterpInit(Tcl_Interp *interp, const void *arg)
  */
 
 static NS_SOCKET
-Listen(Ns_Driver *driver, const char *address, unsigned short port, int backlog)
+Listen(Ns_Driver *driver, const char *address, unsigned short port, int backlog, bool reuseport)
 {
     NS_SOCKET sock;
 
-    sock = Ns_SockListenUdp((char*)address, port);
+    sock = Ns_SockListenUdp((char*)address, port, reuseport);
     if (sock != NS_INVALID_SOCKET) {
         (void) Ns_SockSetNonBlocking(sock);
     }
@@ -262,7 +262,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
         if (len == -1) {
             char ipString[NS_IPADDR_SIZE];
             Ns_Log(Error,"nsudp: %s: FD %d: sendto %" PRIdz " bytes to %s: %s", 
-		   sock->driver->name, sock->sock, len, 
+		   sock->driver->moduleName, sock->sock, len, 
 		   ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
                    strerror(errno));
         }
@@ -334,7 +334,7 @@ Close(Ns_Sock *sock)
             if (len == -1) {
                 char ipString[NS_IPADDR_SIZE];
                 Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", 
-		       sock->driver->name, sock->sock, ds->length, 
+		       sock->driver->moduleName, sock->sock, ds->length, 
 		       ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
                        strerror(errno));
             }
