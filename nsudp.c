@@ -42,7 +42,7 @@
  *   ...
  *   ###############################################
  *
- * 
+ *
  * To send udp packages, use:
  *
  *   ns_udp ?-timeout N? ?-noreply? ipaddr port data
@@ -139,7 +139,7 @@ UdpInterpInit(Tcl_Interp *interp, const void *arg)
  */
 
 static NS_SOCKET
-Listen(Ns_Driver *driver, const char *address, unsigned short port, int backlog, bool reuseport)
+Listen(Ns_Driver *UNUSED(driver), const char *address, unsigned short port, int UNUSED(backlog), bool reuseport)
 {
     NS_SOCKET sock;
 
@@ -166,13 +166,13 @@ Listen(Ns_Driver *driver, const char *address, unsigned short port, int backlog,
  *
  *----------------------------------------------------------------------
  */
- 
+
 static NS_DRIVER_ACCEPT_STATUS
 Accept(Ns_Sock *sock, NS_SOCKET listensock,
-       struct sockaddr *saPtr, socklen_t *socklenPtr)
+       struct sockaddr *UNUSED(saPtr), socklen_t *UNUSED(socklenPtr))
 {
     sock->sock = listensock;
-    
+
     return NS_DRIVER_ACCEPT_DATA;
 }
 
@@ -194,17 +194,17 @@ Accept(Ns_Sock *sock, NS_SOCKET listensock,
  */
 
 static ssize_t
-Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
-     Ns_Time *timeoutPtr, unsigned int flags)
+Recv(Ns_Sock *sock, struct iovec *bufs, int UNUSED(nbufs),
+     Ns_Time *UNUSED(timeoutPtr), unsigned int UNUSED(flags))
 {
     socklen_t socklen;
-    
+
     /*
      * Provide the actual size of the buffer since the structure is not
      * initialized (no address familiy is known).
      */
     socklen = (socklen_t)sizeof(sock->sa);
-    return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0, 
+    return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0,
                     (struct sockaddr *)&(sock->sa), &socklen);
 }
 
@@ -228,7 +228,7 @@ Recv(Ns_Sock *sock, struct iovec *bufs, int nbufs,
 
 static ssize_t
 Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
-     const Ns_Time *timeoutPtr, unsigned int flags)
+     const Ns_Time *UNUSED(timeoutPtr), unsigned int UNUSED(flags))
 {
     ssize_t len, size;
     Tcl_DString *ds = sock->arg;
@@ -257,13 +257,13 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
         } else {
             len = ds->length;
         }
-        len = sendto(sock->sock, ds->string, (size_t)len, 0, 
-		     saPtr, Ns_SockaddrGetSockLen(saPtr));
+        len = sendto(sock->sock, ds->string, (size_t)len, 0,
+                     saPtr, Ns_SockaddrGetSockLen(saPtr));
         if (len == -1) {
             char ipString[NS_IPADDR_SIZE];
-            Ns_Log(Error,"nsudp: %s: FD %d: sendto %" PRIdz " bytes to %s: %s", 
-		   sock->driver->moduleName, sock->sock, len, 
-		   ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
+            Ns_Log(Error,"nsudp: %s: FD %d: sendto %" PRIdz " bytes to %s: %s",
+                   sock->driver->moduleName, sock->sock, len,
+                   ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
                    strerror(errno));
         }
 
@@ -295,7 +295,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
  */
 
 static bool
-Keep(Ns_Sock *sock)
+Keep(Ns_Sock *UNUSED(sock))
 {
     return NS_FALSE;
 }
@@ -333,9 +333,9 @@ Close(Ns_Sock *sock)
                          saPtr, Ns_SockaddrGetSockLen(saPtr));
             if (len == -1) {
                 char ipString[NS_IPADDR_SIZE];
-                Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s", 
-		       sock->driver->moduleName, sock->sock, ds->length, 
-		       ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
+                Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s",
+                       sock->driver->moduleName, sock->sock, ds->length,
+                       ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
                        strerror(errno));
             }
         }
@@ -346,7 +346,7 @@ Close(Ns_Sock *sock)
 }
 
 static int
-UdpObjCmd(ClientData arg, Tcl_Interp *interp, int objc, Tcl_Obj *CONST* objv)
+UdpObjCmd(ClientData UNUSED(clientData), Tcl_Interp *interp, int objc, Tcl_Obj *const* objv)
 {
     fd_set fds;
     unsigned char buf[16384];
