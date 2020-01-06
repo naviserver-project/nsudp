@@ -201,7 +201,7 @@ Recv(Ns_Sock *sock, struct iovec *bufs, int UNUSED(nbufs),
 
     /*
      * Provide the actual size of the buffer since the structure is not
-     * initialized (no address familiy is known).
+     * initialized (no address family is known).
      */
     socklen = (socklen_t)sizeof(sock->sa);
     return recvfrom(sock->sock, bufs->iov_base, bufs->iov_len, 0,
