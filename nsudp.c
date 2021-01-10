@@ -29,30 +29,30 @@
  *
  * Usage:
  *
- *   Configure in the NaviServer config file:
+ *      Configure in the NaviServer config file:
  *
  *   ###############################################
  *   ...
- *   ns_section    ns/servers/server/modules
- *   ns_param      nsudp        nsudp.so
+ *      ns_section    ns/servers/server/modules
+ *      ns_param      nsudp        nsudp.so
  *
- *   ns_section    ns/servers/server/module/nsudp
- *   ns_param      address    ::
- *   ns_param      port       80
+ *      ns_section    ns/servers/server/module/nsudp
+ *      ns_param      address    ::
+ *      ns_param      port       80
  *   ...
  *   ###############################################
  *
  *
  * To send udp packages, use:
  *
- *   ns_udp ?-timeout N? ?-noreply? ipaddr port data
+ *      ns_udp ?-timeout N? ?-noreply? ipaddr port data
  *
  *      ns_udp ::1 80 "GET / HTTP/1.0\n\n"
  *
- * Authors
+ * Authors:
  *
- *     Vlad Seryakov   vlad@crystalballinc.com
- *     Gustaf Neumann  neumann@wu-wien.ac.at
+ *      Vlad Seryakov   vlad@crystalballinc.com
+ *      Gustaf Neumann  neumann@wu-wien.ac.at
  */
 
 #define BUFFER_LEN 1024
@@ -127,13 +127,13 @@ UdpInterpInit(Tcl_Interp *interp, const void *arg)
  *
  * Listen --
  *
- *      Open a listening UDP socket in non-blocking mode.
+ *      Open a listening UDP socket in nonblocking mode.
  *
  * Results:
  *      The open socket or NS_INVALID_SOCKET on error.
  *
  * Side effects:
- *      None
+ *      None.
  *
  *----------------------------------------------------------------------
  */
@@ -156,7 +156,7 @@ Listen(Ns_Driver *UNUSED(driver), const char *address, unsigned short port, int 
  *
  * Accept --
  *
- *      Accept a new TCP socket in non-blocking mode.
+ *      Accept a new TCP socket in nonblocking mode.
  *
  * Results:
  *      NS_DRIVER_ACCEPT_DATA  - socket accepted, data present
@@ -188,7 +188,7 @@ Accept(Ns_Sock *sock, NS_SOCKET listensock,
  *      Total number of bytes received or -1 on error or timeout.
  *
  * Side effects:
- *      None
+ *      None.
  *
  *----------------------------------------------------------------------
  */
@@ -243,7 +243,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
 
     for (len = size = 0; len < nbufs; len++) {
         Tcl_DStringAppend(ds, bufs[len].iov_base, (int)bufs[len].iov_len);
-        size += bufs[len].iov_len;
+        size += (ssize_t)bufs[len].iov_len;
     }
 
     /*
@@ -271,7 +271,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
          * Move remaining bytes to the beginning of the buffer for the next iteration
          */
 
-        memmove(ds->string, ds->string + len, ds->length - len);
+        memmove(ds->string, ds->string + len, (size_t)(ds->length - len));
         Tcl_DStringSetLength(ds, ds->length - (int)len);
     }
     return size;
