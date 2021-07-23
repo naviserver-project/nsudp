@@ -82,7 +82,7 @@ static Tcl_ObjCmdProc UdpObjCmd;
 NS_EXPORT int Ns_ModuleVersion = 1;
 NS_EXPORT Ns_ModuleInitProc Ns_ModuleInit;
 
-NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
+NS_EXPORT Ns_ReturnCode Ns_ModuleInit(const char *server, const char *module)
 {
     const char *path;
     UdpDriver *drvPtr;
@@ -113,7 +113,7 @@ NS_EXPORT int Ns_ModuleInit(const char *server, const char *module)
     return Ns_DriverInit(server, module, &init);
 }
 
-static int
+static Ns_ReturnCode
 UdpInterpInit(Tcl_Interp *interp, const void *arg)
 {
     Tcl_CreateObjCommand(interp, "ns_udp", UdpObjCmd, (ClientData)arg, NULL);
