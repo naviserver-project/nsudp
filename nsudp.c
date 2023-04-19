@@ -333,8 +333,8 @@ Close(Ns_Sock *sock)
                          saPtr, Ns_SockaddrGetSockLen(saPtr));
             if (len == -1) {
                 char ipString[NS_IPADDR_SIZE];
-                Ns_Log(Error,"nsudp: %s: FD %d: sendto %d bytes to %s: %s",
-                       sock->driver->moduleName, sock->sock, ds->length,
+                Ns_Log(Error,"nsudp: %s: FD %d: sendto %ld bytes to %s: %s",
+                       sock->driver->moduleName, sock->sock, (long)ds->length,
                        ns_inet_ntop(saPtr, ipString, sizeof(ipString)),
                        strerror(errno));
             }
