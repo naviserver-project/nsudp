@@ -109,6 +109,7 @@ NS_EXPORT Ns_ReturnCode Ns_ModuleInit(const char *server, const char *module)
     init.defaultPort = 80;
 
     Ns_TclRegisterTrace(server, UdpInterpInit, drvPtr, NS_TCL_TRACE_CREATE);
+    Ns_Log(Notice, "nsudp: version %s loaded", NSUDP_VERSION);
 
     return Ns_DriverInit(server, module, &init);
 }
@@ -117,7 +118,6 @@ static Ns_ReturnCode
 UdpInterpInit(Tcl_Interp *interp, const void *arg)
 {
     Tcl_CreateObjCommand(interp, "ns_udp", UdpObjCmd, (ClientData)arg, NULL);
-    Ns_Log(Notice, "nsudp: version %s loaded", NSUDP_VERSION);
 
     return NS_OK;
 }
@@ -283,7 +283,7 @@ Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
  *
  * Keep --
  *
- *      Cannot do keep-alives with UDP
+ *      Keep-alive handling make no sense with UDP.
  *
  * Results:
  *      NS_FALSE, always.
