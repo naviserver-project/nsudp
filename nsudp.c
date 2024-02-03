@@ -114,7 +114,7 @@ NS_EXPORT Ns_ReturnCode Ns_ModuleInit(const char *server, const char *module)
     return Ns_DriverInit(server, module, &init);
 }
 
-static Ns_ReturnCode
+static int
 UdpInterpInit(Tcl_Interp *interp, const void *arg)
 {
     Tcl_CreateObjCommand(interp, "ns_udp", UdpObjCmd, (ClientData)arg, NULL);
@@ -361,7 +361,7 @@ UdpObjCmd(ClientData UNUSED(clientData), Tcl_Interp *interp, int objc, Tcl_Obj *
     char          *address = NULL, *bindaddr = NULL;
     int            i, sock, rc = TCL_OK;
     int            stream = 0, timeout = 5, retries = 1, noreply = 0;
-    TCL_SIZE_T     intlen;
+    TCL_SIZE_T     byteLength;
     unsigned short port;
     ssize_t        len;
     Ns_ObjvSpec    opts[] = {
@@ -409,8 +409,8 @@ UdpObjCmd(ClientData UNUSED(clientData), Tcl_Interp *interp, int objc, Tcl_Obj *
         }
     }
 
-    data = Tcl_GetByteArrayFromObj(objd, &intlen);
-    len = (ssize_t)intlen;
+    data = Tcl_GetByteArrayFromObj(objd, &byteLength);
+    len = (ssize_t)byteLength;
 resend:
     {
         char saString[NS_IPADDR_SIZE], baString[NS_IPADDR_SIZE];
