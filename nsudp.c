@@ -77,7 +77,7 @@ static Ns_DriverKeepProc Keep;
 static Ns_DriverCloseProc Close;
 static Ns_TclTraceProc UdpInterpInit;
 
-static Tcl_ObjCmdProc UdpObjCmd;
+static TCL_OBJCMDPROC_T UdpObjCmd;
 
 NS_EXPORT int Ns_ModuleVersion = 1;
 NS_EXPORT Ns_ModuleInitProc Ns_ModuleInit;
@@ -117,7 +117,7 @@ NS_EXPORT Ns_ReturnCode Ns_ModuleInit(const char *server, const char *module)
 static int
 UdpInterpInit(Tcl_Interp *interp, const void *arg)
 {
-    Tcl_CreateObjCommand(interp, "ns_udp", UdpObjCmd, (ClientData)arg, NULL);
+    TCL_CREATEOBJCOMMAND(interp, "ns_udp", UdpObjCmd, (ClientData)arg, NULL);
 
     return NS_OK;
 }
@@ -346,7 +346,7 @@ Close(Ns_Sock *sock)
 }
 
 static int
-UdpObjCmd(ClientData UNUSED(clientData), Tcl_Interp *interp, int objc, Tcl_Obj *const* objv)
+UdpObjCmd(ClientData UNUSED(clientData), Tcl_Interp *interp, TCL_SIZE_T objc, Tcl_Obj *const* objv)
 {
     fd_set fds;
     unsigned char buf[16384];
