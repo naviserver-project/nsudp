@@ -5,6 +5,8 @@ vlad@crystalballinc.com
 This is NaviServer module that implements HTTP over UDP support and
 adds new ns_udp command for sending UDP packets.
 
+Compatibility: The module compiles with Tcl 8.5, 8.6 and 9.0.
+
 /*--------------------------------------------------------------------*/
 
 
