@@ -228,7 +228,10 @@ Recv(Ns_Sock *sock, struct iovec *bufs, int UNUSED(nbufs),
 
 static ssize_t
 Send(Ns_Sock *sock, const struct iovec *bufs, int nbufs,
-     const Ns_Time *UNUSED(timeoutPtr), unsigned int UNUSED(flags))
+#if NS_MAJOR_VERSION < 5
+     const Ns_Time *UNUSED(timeoutPtr),
+#endif
+     unsigned int UNUSED(flags))
 {
     ssize_t len, size;
     Tcl_DString *ds = sock->arg;
